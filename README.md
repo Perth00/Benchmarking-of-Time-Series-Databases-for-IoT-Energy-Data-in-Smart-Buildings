@@ -1,5 +1,5 @@
 # Benchmarking of Time Series Databases for IoT Energy Data in Smart Buildings
-The code aims to explore the performance of InfluxDB, TimescaleDB, Apache Druid and PostgreSQL by accessing their capabilities in data ingestion, query execution, storage efficiency, and scalability. 
+The code aims to explore the performance of InfluxDB, TimescaleDB, MongoDB and PostgreSQL by accessing their capabilities in data ingestion, query execution, storage efficiency, and scalability. 
 
 
 
