@@ -1,0 +1,2 @@
+,Ingestion Time (sec),Ingestion Rate (points/sec),Ingestion Latency (sec),Query Latency (sec),Aggregation Latency (sec),Memory Usage (MB),Compression Efficiency (%),Compression Ratio,Raw Size (MB),Compressed Size (MB),Disk Usage (bytes),Indexing Overhead (bytes),Indexing Creation Latency (sec)
+InfluxDB,1.0135116577148438,34574.83664175004,2.892276861237497e-05,0.10019254684448242,0.024069786071777344,77.7578125,50.0,2.0,3.2351951599121094,1.6175975799560547,2035408.7999999998,350420,0.20270233154296877

@@ -1,0 +1,410 @@
+//postgret and timescaleDB
+CREATE DATABASE comparison;
+
+
+\c comparison
+
+
+//create table for postgret
+
+
+
+CREATE TABLE timeseries_pg (
+    timestamp TIMESTAMP NOT NULL,
+    Usage_kWh DOUBLE PRECISION NOT NULL,
+    Lagging_Current_Reactive_Power_kVarh DOUBLE PRECISION,
+    Leading_Current_Reactive_Power_kVarh DOUBLE PRECISION,
+    CO2_tCO2 DOUBLE PRECISION,
+    Lagging_Current_Power_Factor DOUBLE PRECISION,
+    Leading_Current_Power_Factor DOUBLE PRECISION,
+    NSM DOUBLE PRECISION,
+    WeekStatus TEXT,
+    Day_of_week TEXT,
+    Load_Type TEXT
+);
+
+CREATE INDEX timeseries_pg_index ON timeseries_pg (timestamp);
+
+
+//Load into PostgreSQL Table
+
+SET datestyle = 'DMY, ISO';
+
+\COPY timeseries_pg FROM 'E:/Download/CSV/assignment/k/Steel_industry_data.csv' CSV HEADER;
+
+TRUNCATE TABLE timeseries_pg CASCADE;
+
+SELECT COUNT(*) FROM timeseries_pg;
+
+-- PostgreSQL Ingestion Time
+DO $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    ingestion_time NUMERIC;
+    ingestion_rate NUMERIC;
+    ingestion_latency NUMERIC;
+    num_records INTEGER := 35041; -- Adjust based on your dataset size
+BEGIN
+    -- Start time
+    start_time := clock_timestamp();
+
+    -- Simulate data ingestion
+    INSERT INTO timeseries_pg (timestamp, Usage_kWh)
+    SELECT NOW() + (i * INTERVAL '1 second'), random() * 500
+    FROM generate_series(1, num_records) AS i;
+
+    -- End time
+    end_time := clock_timestamp();
+
+    -- Calculate ingestion time
+    ingestion_time := EXTRACT(EPOCH FROM end_time - start_time);
+
+    -- Calculate ingestion rate
+    ingestion_rate := num_records / ingestion_time;
+
+    -- Calculate ingestion latency
+    ingestion_latency := ingestion_time / num_records;
+
+    -- Display results
+    RAISE NOTICE 'PostgreSQL Ingestion Time: % seconds', ingestion_time;
+    RAISE NOTICE 'PostgreSQL Ingestion Rate: % points/second', ingestion_rate;
+    RAISE NOTICE 'PostgreSQL Ingestion Latency: % seconds/record', ingestion_latency;
+END $$;
+
+-- PostgreSQL Query Latency
+DO $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    query_latency NUMERIC;
+BEGIN
+    start_time := clock_timestamp();
+
+    PERFORM *
+    FROM timeseries_pg
+    WHERE timestamp BETWEEN '2024-01-01 00:00:00' AND '2024-01-02 00:00:00';
+
+    end_time := clock_timestamp();
+    query_latency := EXTRACT(EPOCH FROM end_time - start_time);
+
+    RAISE NOTICE 'PostgreSQL Query Latency: % seconds', query_latency;
+END $$;
+
+--Aggregation Latency
+
+DO $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    aggregation_latency NUMERIC;
+    avg_value NUMERIC;
+    min_value NUMERIC;
+    max_value NUMERIC;
+BEGIN
+    start_time := clock_timestamp();
+
+    -- Perform aggregation
+    SELECT AVG(Usage_kWh), MIN(Usage_kWh), MAX(Usage_kWh)
+    INTO avg_value, min_value, max_value
+    FROM timeseries_pg;
+
+    end_time := clock_timestamp();
+    aggregation_latency := EXTRACT(EPOCH FROM end_time - start_time);
+
+    -- Display results
+    RAISE NOTICE 'PostgreSQL Aggregation Latency: % seconds', aggregation_latency;
+    RAISE NOTICE 'Average Value: %', avg_value;
+    RAISE NOTICE 'Minimum Value: %', min_value;
+    RAISE NOTICE 'Maximum Value: %', max_value;
+END $$;
+
+-- PostgreSQL Disk Usage in Bytes
+SELECT pg_total_relation_size('timeseries_pg') AS disk_usage_bytes_pg;
+
+--Indexing Overhead
+
+SELECT pg_total_relation_size('timeseries_pg_index') AS index_size_bytes;
+
+--Indexing Creation Latency
+
+DROP INDEX IF EXISTS timeseries_pg_index;
+
+DO $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    indexing_time NUMERIC;
+BEGIN
+    start_time := clock_timestamp();
+
+    CREATE INDEX timeseries_pg_index ON timeseries_pg (timestamp);
+
+    end_time := clock_timestamp();
+    indexing_time := EXTRACT(EPOCH FROM end_time - start_time);
+
+    RAISE NOTICE 'PostgreSQL Indexing Creation Latency: % seconds', indexing_time;
+END $$;
+
+
+
+
+
+
+
+
+
+//for timescaledb
+
+CREATE DATABASE comparison;
+
+
+\c comparison
+
+
+-- Install TimescaleDB extension (for TimescaleDB metrics)
+CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+
+TRUNCATE TABLE timeseries_ts CASCADE;
+
+SELECT COUNT(*) FROM timeseries_ts;
+
+-- TimescaleDB table (hypertable)
+CREATE TABLE timeseries_ts (
+    timestamp TIMESTAMP NOT NULL,
+    Usage_kWh DOUBLE PRECISION NOT NULL,
+    Lagging_Current_Reactive_Power_kVarh DOUBLE PRECISION,
+    Leading_Current_Reactive_Power_kVarh DOUBLE PRECISION,
+    CO2_tCO2 DOUBLE PRECISION,
+    Lagging_Current_Power_Factor DOUBLE PRECISION,
+    Leading_Current_Power_Factor DOUBLE PRECISION,
+    NSM DOUBLE PRECISION,
+    WeekStatus TEXT,
+    Day_of_week TEXT,
+    Load_Type TEXT
+);
+
+CREATE INDEX timeseries_ts_index ON timeseries_ts (timestamp);
+
+-- Convert TimescaleDB table to a hypertable
+
+SELECT create_hypertable('timeseries_ts', 'timestamp');
+
+
+--Load into TimeScaleDB Table
+
+SET datestyle = 'DMY, ISO';
+
+\COPY timeseries_ts FROM 'E:/Download/CSV/assignment/k/Steel_industry_data.csv' CSV HEADER;
+
+
+--TimescaleDB ingestion time
+DO $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    ingestion_time NUMERIC;
+    ingestion_rate NUMERIC;
+    ingestion_latency NUMERIC;
+    num_records INTEGER := 35041; -- Adjust based on your dataset size
+BEGIN
+    -- Start time
+    start_time := clock_timestamp();
+
+    -- Simulate data ingestion
+    INSERT INTO timeseries_ts (timestamp, Usage_kWh)
+    SELECT NOW() + (i * INTERVAL '1 second'), random() * 500
+    FROM generate_series(1, num_records) AS i;
+
+    -- End time
+    end_time := clock_timestamp();
+
+    -- Calculate ingestion time
+    ingestion_time := EXTRACT(EPOCH FROM end_time - start_time);
+
+    -- Calculate ingestion rate
+    ingestion_rate := num_records / ingestion_time;
+
+    -- Calculate ingestion latency
+    ingestion_latency := ingestion_time / num_records;
+
+    -- Display results
+    RAISE NOTICE 'TimescaleDB Ingestion Time: % seconds', ingestion_time;
+    RAISE NOTICE 'TimescaleDB Ingestion Rate: % points/second', ingestion_rate;
+    RAISE NOTICE 'TimescaleDB Ingestion Latency: % seconds/record', ingestion_latency;
+END $$;
+
+-- TimescaleDB Query Latency
+DO $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    query_latency NUMERIC;
+BEGIN
+    start_time := clock_timestamp();
+
+    PERFORM *
+    FROM timeseries_ts
+    WHERE timestamp BETWEEN '2024-01-01 00:00:00' AND '2024-01-02 00:00:00';
+
+    end_time := clock_timestamp();
+    query_latency := EXTRACT(EPOCH FROM end_time - start_time);
+
+    RAISE NOTICE 'TimescaleDB Query Latency: % seconds', query_latency;
+END $$;
+
+-- TimescaleDB Aggregation Latency
+
+DO $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    aggregation_latency NUMERIC;
+    avg_usage NUMERIC;
+    min_usage NUMERIC;
+    max_usage NUMERIC;
+BEGIN
+    -- Start measuring time
+    start_time := clock_timestamp();
+
+    -- Perform aggregation for avg, min, and max
+    SELECT AVG(Usage_kWh), MIN(Usage_kWh), MAX(Usage_kWh)
+    INTO avg_usage, min_usage, max_usage
+    FROM timeseries_ts;
+
+    -- End measuring time
+    end_time := clock_timestamp();
+
+    -- Calculate latency
+    aggregation_latency := EXTRACT(EPOCH FROM end_time - start_time);
+
+    -- Display the results
+    RAISE NOTICE 'TimescaleDB Aggregation Latency: % seconds', aggregation_latency;
+    RAISE NOTICE 'Average Usage: %', avg_usage;
+    RAISE NOTICE 'Minimum Usage: %', min_usage;
+    RAISE NOTICE 'Maximum Usage: %', max_usage;
+END $$;
+
+
+
+
+-- TimescaleDB Disk Usage in Bytes
+SELECT pg_total_relation_size('timeseries_ts') AS disk_usage_bytes_ts;
+
+
+--Indexing Overhead
+
+SELECT pg_size_pretty(pg_total_relation_size('timeseries_ts_index')) AS index_size_ts;\
+
+
+--Indexing Creation Latency
+
+DO $$
+DECLARE
+    start_time TIMESTAMP;
+    end_time TIMESTAMP;
+    indexing_time NUMERIC;
+BEGIN
+    -- Start measuring time
+    start_time := clock_timestamp();
+
+    -- Create index only if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_indexes
+        WHERE tablename = 'timeseries_ts'
+        AND indexname = 'timeseries_ts_index'
+    ) THEN
+        EXECUTE 'CREATE INDEX timeseries_ts_index ON timeseries_ts (timestamp)';
+    END IF;
+
+    -- End measuring time
+    end_time := clock_timestamp();
+
+    -- Calculate indexing creation latency
+    indexing_time := EXTRACT(EPOCH FROM end_time - start_time);
+
+    -- Display the result
+    RAISE NOTICE 'TimescaleDB Indexing Creation Latency: % seconds', indexing_time;
+END $$;
+
+--compression
+
+
+
+
+DO $$
+DECLARE
+    chunk RECORD;
+BEGIN
+    FOR chunk IN
+        SELECT chunk_name
+        FROM timescaledb_information.chunks
+        WHERE hypertable_name = 'timeseries_ts' AND is_compressed = false
+    LOOP
+        EXECUTE format('SELECT compress_chunk(%L);', '_timescaledb_internal.' || chunk.chunk_name);
+    END LOOP;
+END $$;
+
+
+
+SELECT
+    SUM(pg_total_relation_size('_timescaledb_internal.' || chunk_name)) AS uncompressed_size
+FROM timescaledb_information.chunks
+WHERE hypertable_name = 'timeseries_ts';
+
+
+SELECT pg_total_relation_size('timeseries_ts') AS post_compression_size;
+
+
+-- Calculate Compression Ratio and Compression Efficiency
+
+DELETE FROM timeseries_ts;
+
+
+TRUNCATE timeseries_ts;
+
+
+SELECT COUNT(*) FROM timeseries_ts;
+
+
+\COPY timeseries_ts FROM 'E:/Download/CSV/assignment/k/Steel_industry_data.csv' CSV HEADER;
+
+
+SELECT COUNT(*) FROM timeseries_ts;
+SELECT * FROM timeseries_ts LIMIT 10;
+
+
+ALTER TABLE timeseries_ts SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'Load_Type',
+    timescaledb.compress_orderby = 'timestamp'
+);
+
+
+DO $$
+DECLARE
+    chunk RECORD;
+BEGIN
+    FOR chunk IN
+        SELECT chunk_name
+        FROM timescaledb_information.chunks
+        WHERE hypertable_name = 'timeseries_ts' AND is_compressed = false
+    LOOP
+        EXECUTE format('SELECT compress_chunk(%L);', '_timescaledb_internal.' || chunk.chunk_name);
+    END LOOP;
+END $$;
+
+
+SELECT 
+    uncompressed_size,
+    post_compression_size,
+    uncompressed_size::NUMERIC / post_compression_size AS compression_ratio,
+    ((uncompressed_size - post_compression_size)::NUMERIC / uncompressed_size) * 100 AS compression_efficiency
+FROM (
+    SELECT
+        SUM(pg_total_relation_size('_timescaledb_internal.' || chunk_name)) AS uncompressed_size,
+        (SELECT pg_total_relation_size('timeseries_ts')) AS post_compression_size
+    FROM timescaledb_information.chunks
+    WHERE hypertable_name = 'timeseries_ts'
+) AS sizes;

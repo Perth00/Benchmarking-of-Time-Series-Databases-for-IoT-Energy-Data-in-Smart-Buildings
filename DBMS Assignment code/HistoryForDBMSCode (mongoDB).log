@@ -1,0 +1,75 @@
+MongoDB
+cd "C:\Program Files\MongoDB\Tools\100\bin"
+
+dir
+
+mongoimport --db benchmark --collection timeseries --type csv --headerline --file "E:\Download\CSV\assignment\k\Steel_industry_data.csv"
+
+mongosh
+
+use benchmark;
+
+
+//Start ingestion rate code (First Method )
+
+db.timeseries.deleteMany({}); const startTime = Date.now(); db.timeseries.insertMany(Array.from({ length: 35041 }, (_, i) => ({ date: new Date(), Usage_kWh: Math.random() * 500, Lagging_Current_Reactive_Power_kVarh: Math.random() * 500, Leading_Current_Reactive_Power_kVarh: Math.random() * 500, "CO2(tCO2)": Math.random() * 10, Lagging_Current_Power_Factor: Math.random(), Leading_Current_Power_Factor: Math.random(), NSM: Math.floor(Math.random() * 86400), WeekStatus: Math.random() > 0.5 ? "Weekday" : "Weekend", Day_of_week: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][Math.floor(Math.random() * 7)], Load_Type: Math.random() > 0.5 ? "Industrial" : "Residential" }))); const totalDocuments = db.timeseries.countDocuments(); const endTime = Date.now(); const ingestionTime = (endTime - startTime) / 1000; print(`Total Documents: ${totalDocuments}`); print(`Ingestion Time: ${ingestionTime} seconds`); const ingestionRate = totalDocuments / ingestionTime; print(`Ingestion Rate: ${ingestionRate.toFixed(2)} documents per second`);
+
+
+//ingestion Latency
+
+db.timeseries.deleteMany({}); const startTime = Date.now(); db.timeseries.insertMany(Array.from({ length: 35041 }, (_, i) => ({ date: new Date(), Usage_kWh: Math.random() * 500, Lagging_Current_Reactive_Power_kVarh: Math.random() * 500, Leading_Current_Reactive_Power_kVarh: Math.random() * 500, "CO2(tCO2)": Math.random() * 10, Lagging_Current_Power_Factor: Math.random(), Leading_Current_Power_Factor: Math.random(), NSM: Math.floor(Math.random() * 86400), WeekStatus: Math.random() > 0.5 ? "Weekday" : "Weekend", Day_of_week: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][Math.floor(Math.random() * 7)], Load_Type: Math.random() > 0.5 ? "Industrial" : "Residential" }))); const endTime = Date.now(); const insertionLatency = (endTime - startTime) / 1000; print(`Insertion Latency: ${insertionLatency} seconds`);
+
+
+// Calculate ingestion latency
+const ingestionLatency = (endTime - startTime) / 1000; // Convert milliseconds to seconds
+print(`Ingestion Latency: ${ingestionLatency} seconds`);
+
+
+//Compression
+
+
+const stats = db.timeseries.stats();
+print(`Raw Data Size: ${stats.size} bytes`);
+print(`Storage Size: ${stats.storageSize} bytes`);
+
+const compressionRatio = stats.size / stats.storageSize;
+print(`Compression Ratio: ${compressionRatio}`);
+
+
+const compressionEfficiency = ((stats.size - stats.storageSize) / stats.size) * 100;
+print(`Compression Efficiency: ${compressionEfficiency.toFixed(2)}%`);
+
+
+
+// Query Latency 
+
+const startTime = Date.now(); db.timeseries.find({ timestamp: { $gte: ISODate("2024-01-01T00:00:00Z"), $lt: ISODate("2024-01-02T00:00:00Z") } }).toArray(); const endTime = Date.now(); const queryLatency = (endTime - startTime) / 1000; print(`Query Latency: ${queryLatency} seconds`);
+
+
+//Aggregation Latency
+
+const startTime = Date.now(); const results = db.timeseries.aggregate([{ $group: { _id: null, avgUsage: { $avg: "$Usage_kWh" }, minUsage: { $min: "$Usage_kWh" }, maxUsage: { $max: "$Usage_kWh" } } }]).toArray(); const endTime = Date.now(); print(`Aggregation Latency: ${(endTime - startTime) / 1000} seconds`); printjson(results);
+
+
+//dish usage
+const stats = db.timeseries.stats();
+print(`Disk Usage: ${stats.totalSize} bytes`);
+
+
+
+//Memory Usage
+
+const serverStatus = db.serverStatus();
+print(`Memory Usage: ${serverStatus.mem.resident} MB`);
+
+
+//a. Indexing Overhead
+
+print(`Index Size: ${stats.totalIndexSize} bytes`);
+
+
+//b. Index Creation Latency
+const startTime = Date.now();
+db.timeseries.createIndex({ timestamp: 1 });
+const endTime = Date.now();
+print(`Index Creation Latency: ${(endTime - startTime) / 1000} seconds`);
